@@ -1,1 +1,220 @@
-html <!doctype html> <html lang="en"> <head> <meta charset="utf-8" /> <meta name="viewport" content="width=device-width,initial-scale=1" /> <title>LUCIAN // Step 1 (Teleport + Ingots + Bench + Mannequin)</title> <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script> <style> html,body{margin:0;height:100%;background:#05070b} #hint{ position:fixed;left:12px;bottom:12px;z-index:10; font:13px system-ui,Segoe UI,Roboto,Arial; color:rgba(210,245,255,.92); background:rgba(6,17,27,.45); border:1px solid rgba(86,230,255,.25); padding:8px 10px;border-radius:10px;max-width:480px; backdrop-filter: blur(6px); } #hint b{color:#9ff3ff} </style> </head> <body> <div id="hint"> <b>LUCIAN</b> STEP 1 — right-hand teleport (short range), targets drop ingots, bench spawns pieces, snap to mannequin sockets. </div> <script> const COSTS = { visor: 2, forearmL: 3, forearmR: 3, shoulderL: 3, shoulderR: 3, helmet: 4, thighL: 4, thighR: 4, chest: 5, back: 5 }; const NAMES = { visor: "VISOR", forearmL: "FOREARM L", forearmR: "FOREARM R", shoulderL: "SHOULDER L", shoulderR: "SHOULDER R", helmet: "HELMET", thighL: "THIGH L", thighR: "THIGH R", chest: "CHEST", back: "BACK" }; // ---------- Global state system ---------- AFRAME.registerSystem("lucian", { init() { this.active = false; this.score = 0; this.ingots = 0; this.timeLeft = 60; this.crafted = {}; // pieceId -> true this.hud = { score:null, time:null, ingots:null, status:null }; }, setHUD(scoreEl, timeEl, ingotsEl, statusEl){ this.hud.score = scoreEl; this.hud.time = timeEl; this.hud.ingots = ingotsEl; this.hud.status = statusEl; this.updateHUD(); }, startSession(){ if (this.active) return; this.active = true; this.score = 0; this.ingots = 0; this.timeLeft = 60; this.crafted = {}; this.updateHUD(); this.flash("SESSION ACTIVE"); }, flash(msg){ if (!this.hud.status) return; this.hud.status.setAttribute("value", msg); setTimeout(()=> this.hud.status && this.hud.status.setAttribute("value",""), 1100); }, updateHUD(){ this.hud.score && this.hud.score.setAttribute("value", `SCORE ${this.score}`); this.hud.time && this.hud.time.setAttribute("value", `TIME ${this.timeLeft}s`); this.hud.ingots&& this.hud.ingots.setAttribute("value",`INGOTS ${this.ingots}`); }, addScore(n){ this.score += n; this.updateHUD(); }, addIngots(n){ this.ingots += n; this.updateHUD(); }, canAfford(pieceId){ return this.ingots >= (COSTS[pieceId] ?? 999); }, spend(pieceId){ const cost = COSTS[pieceId] ?? 999; if (this.ingots < cost) return false; this.ingots -= cost; this.updateHUD(); return true; }, markCrafted(pieceId){ this.crafted[pieceId] = true; }, isCrafted(pieceId){ return !!this.crafted[pieceId]; } }); // ---------- Targets spawner + session timer ---------- AFRAME.registerComponent("lucian-session", { init() { this.sys = this.el.sceneEl.systems.lucian; this.root = document.querySelector("#spawnRoot"); this.el.sceneEl.addEventListener("enter-vr", () => this.sys.startSession()); this.spawnBatch(7); this.timer = setInterval(() => { if (!this.sys.active) return; this.sys.timeLeft--; if (this.sys.timeLeft <= 0){ this.sys.timeLeft = 0; this.sys.active = false; this.sys.updateHUD(); this.clearTargets(); this.sys.flash("SESSION COMPLETE"); return; } if (this.root.children.length < 7) this.spawnBatch(2); this.sys.updateHUD(); }, 1000); }, remove(){ clearInterval(this.timer); }, clearTargets(){ while(this.root.firstChild) this.root.removeChild(this.root.firstChild); }, spawnBatch(n){ for(let i=0;i<n;i++) this.spawnTarget(); }, spawnTarget(){ const t = document.createElement("a-entity"); t.classList.add("target"); const r = 0.7 + Math.random()*1.1; const ang = Math.random()*Math.PI*2; const x = Math.cos(ang)*r; const z = Math.sin(ang)*r - 0.85; const y = 1.05 + Math.random()*1.0; t.setAttribute("position", `${x} ${y} ${z}`); const ring = document.createElement("a-ring"); ring.setAttribute("radius-inner","0.055"); ring.setAttribute("radius-outer","0.065"); ring.setAttribute("material","shader:flat; color:#56e6ff; opacity:0.78; transparent:true"); t.appendChild(ring); const core = document.createElement("a-circle"); core.setAttribute("radius","0.038"); core.setAttribute("material","shader:flat; color:#ffb454; opacity:0.62; transparent:true"); core.setAttribute("position","0 0 0.002"); t.appendChild(core); const glow = document.createElement("a-circle"); glow.setAttribute("radius","0.095"); glow.setAttribute("material","shader:flat; color:#56e6ff; opacity:0.10; transparent:true"); glow.setAttribute("position","0 0 0.001"); t.appendChild(glow); t.setAttribute("animation__spin","property: rotation; to: 0 0 360; loop:true; dur: 1550; easing: linear"); t.setAttribute("animation__bob","property: position; dir: alternate; dur: 900; loop:true; easing: easeInOutSine; to: "+`${x} ${y+0.05} ${z}`); const ttl = 3200 + Math.random()*2400; setTimeout(() => { if (t.parentElement) t.parentElement.removeChild(t); }, ttl); this.root.appendChild(t); } }); // ---------- Hand visuals + "touch to pop" ---------- AFRAME.registerComponent("palm-pop", { init() { this.sys = this.el.sceneEl.systems.lucian; this.tmp = new THREE.Vector3(); this.tmpT = new THREE.Vector3(); const glow = document.createElement("a-circle"); glow.setAttribute("radius","0.03"); glow.setAttribute("position","0 0 0.02"); glow.setAttribute("material","shader:flat; color:#56e6ff; opacity:0.85; transparent:true"); this.el.appendChild(glow); const ring = document.createElement("a-ring"); ring.setAttribute("radius-inner","0.033"); ring.setAttribute("radius-outer","0.040"); ring.setAttribute("position","0 0 0.021"); ring.setAttribute("material","shader:flat; color:#ffb454; opacity:0.75; transparent:true"); this.el.appendChild(ring); const plate = document.createElement("a-box"); plate.setAttribute("width","0.085"); plate.setAttribute("height","0.014"); plate.setAttribute("depth","0.11"); plate.setAttribute("position","0 0.02 -0.02"); plate.setAttribute("material","color:#7a0d16; metalness:0.35; roughness:0.55"); this.el.appendChild(plate); const cuff = document.createElement("a-cylinder"); cuff.setAttribute("radius", "0.045"); cuff.setAttribute("height", "0.11"); cuff.setAttribute("position", "0 0.03 -0.09"); cuff.setAttribute("rotation", "90 0 0"); cuff.setAttribute("material", "color:#7a0d16; metalness:0.35; roughness:0.6"); this.el.appendChild(cuff); const cuffAccent = document.createElement("a-cylinder"); cuffAccent.setAttribute("radius", "0.047"); cuffAccent.setAttribute("height", "0.012"); cuffAccent.setAttribute("position", "0 0.03 -0.13"); cuffAccent.setAttribute("rotation", "90 0 0"); cuffAccent.setAttribute("material", "shader:flat; color:#ffb454; opacity:0.75; transparent:true"); this.el.appendChild(cuffAccent); }, tick() { if (!this.sys.active) return; this.el.object3D.getWorldPosition(this.tmp); const targets = document.querySelectorAll(".target"); for (const t of targets){ t.object3D.getWorldPosition(this.tmpT); if (this.tmpT.distanceTo(this.tmp) < 0.12){ this.sys.addScore(10); this.sys.addIngots(1); t.setAttribute("animation__pop","property: scale; to: 1.35 1.35 1.35; dur: 110; easing: easeOutQuad"); setTimeout(() => { if (t.parentElement) t.parentElement.removeChild(t); }, 120); break; } } } }); // ---------- Right-hand teleport (short range) ---------- AFRAME.registerComponent("lucian-teleport", { schema: { maxDist: {default: 3.0} }, init() { this.rig = document.querySelector("#rig"); this.hand = document.querySelector("#rightHand"); this.marker = document.querySelector("#teleMarker"); this.tmpO = new THREE.Vector3(); this.tmpD = new THREE.Vector3(); this.ray = new THREE.Ray(); this.lastHit = null; this.floorY = 0; this.el.sceneEl.addEventListener("select", () => { if (!this.lastHit) return; this.rig.object3D.position.set(this.lastHit.x, this.rig.object3D.position.y, this.lastHit.z); }); }, tick() { const obj = this.hand.object3D; obj.getWorldPosition(this.tmpO); obj.getWorldDirection(this.tmpD); this.tmpD.normalize(); this.ray.origin.copy(this.tmpO); this.ray.direction.copy(this.tmpD); const denom = this.ray.direction.y; if (Math.abs(denom) < 1e-3){ this.marker.setAttribute("visible","false"); this.lastHit = null; return; } const t = (this.floorY - this.ray.origin.y) / denom; if (t < 0 || t > this.data.maxDist){ this.marker.setAttribute("visible","false"); this.lastHit = null; return; } const hit = this.ray.at(t, new THREE.Vector3()); this.marker.object3D.position.copy(hit); this.marker.setAttribute("visible","true"); this.lastHit = hit; } }); // ---------- Bench: spawn buttons ---------- AFRAME.registerComponent("spawn-button", { schema: { piece: {default:"visor"} }, init() { this.sys = this.el.sceneEl.systems.lucian; this.spawnArea = null; this.el.sceneEl.addEventListener("loaded", () => { this.spawnArea = document.querySelector("#spawnArea"); }); this.el.addEventListener("click", () => this.spawn()); }, spawn() { const pieceId = this.data.piece; if (this.sys.isCrafted(pieceId)){ this.sys.flash(`${NAMES[pieceId]} ALREADY ATTACHED`); return; } if (!this.sys.canAfford(pieceId)){ this.sys.flash(`NEED ${COSTS[pieceId]} INGOTS`); return; } if (!this.sys.spend(pieceId)) return; const p = document.createElement("a-entity"); p.classList.add("armor-piece"); p.setAttribute("piece-id", pieceId); p.setAttribute("grabbable", ""); const matC = "shader: flat; color:#56e6ff; opacity:0.55; transparent:true"; const matA = "shader: flat; color:#ffb454; opacity:0.40; transparent:true"; if (pieceId === "visor"){ const a = document.createElement("a-torus"); a.setAttribute("radius","0.07"); a.setAttribute("radius-tubular","0.01"); a.setAttribute("material", matC); p.appendChild(a); } else if (pieceId === "helmet"){ const a = document.createElement("a-sphere"); a.setAttribute("radius","0.09"); a.setAttribute("material", matC); p.appendChild(a); } else if (pieceId === "chest" || pieceId === "back"){ const a = document.createElement("a-box"); a.setAttribute("width","0.22"); a.setAttribute("height","0.18"); a.setAttribute("depth","0.10"); a.setAttribute("material", matC); p.appendChild(a); } else if (pieceId.startsWith("shoulder")){ const a = document.createElement("a-sphere"); a.setAttribute("radius","0.07"); a.setAttribute("material", matC); p.appendChild(a); } else if (pieceId.startsWith("forearm")){ const a = document.createElement("a-cylinder"); a.setAttribute("radius","0.05"); a.setAttribute("height","0.16"); a.setAttribute("rotation","90 0 0"); a.setAttribute("material", matC); p.appendChild(a); } else if (pieceId.startsWith("thigh")){ const a = document.createElement("a-cylinder"); a.setAttribute("radius","0.06"); a.setAttribute("height","0.20"); a.setAttribute("rotation","90 0 0"); a.setAttribute("material", matC); p.appendChild(a); } const accent = document.createElement("a-ring"); accent.setAttribute("radius-inner","0.035"); accent.setAttribute("radius-outer","0.045"); accent.setAttribute("position","0 0 0.06"); accent.setAttribute("material", matA); p.appendChild(accent); const wpos = new THREE.Vector3(); this.spawnArea.object3D.getWorldPosition(wpos); p.setAttribute("position", `${wpos.x} ${wpos.y+0.08} ${wpos.z}`); this.el.sceneEl.appendChild(p); this.sys.flash(`SPAWNED ${NAMES[pieceId]}`); } }); // ---------- Grab + snap ---------- AFRAME.registerComponent("grabbable", { init() { this.leftHand = document.querySelector("#leftHand"); this.rightHand = document.querySelector("#rightHand"); this.grabbedBy = null; this._onSelectStart = () => { if (this.grabbedBy) return; const objPos = new THREE.Vector3(); this.el.object3D.getWorldPosition(objPos); const l = new THREE.Vector3(); const r = new THREE.Vector3(); this.leftHand.object3D.getWorldPosition(l); this.rightHand.object3D.getWorldPosition(r); const dl = objPos.distanceTo(l); const dr = objPos.distanceTo(r); const hand = dl < dr ? this.leftHand : this.rightHand; const dmin = Math.min(dl, dr); if (dmin > 0.20) return; this.grabbedBy = hand; hand.object3D.attach(this.el.object3D); this.el.setAttribute("position", "0 0 0"); }; this._onSelectEnd = () => { if (!this.grabbedBy) return; this.el.sceneEl.object3D.attach(this.el.object3D); this.grabbedBy = null; const socket = this.findSocket(); if (socket) this.snap(socket); }; this.el.sceneEl.addEventListener("selectstart", this._onSelectStart); this.el.sceneEl.addEventListener("selectend", this._onSelectEnd); }, remove() { this.el.sceneEl.removeEventListener("selectstart", this._onSelectStart); this.el.sceneEl.removeEventListener("selectend", this._onSelectEnd); }, findSocket() { const pieceId = this.el.getAttribute("piece-id"); const sockets = [...document.querySelectorAll("[snap-socket]")]; const objPos = new THREE.Vector3(); this.el.object3D.getWorldPosition(objPos); let best = null; let bestD = 999; for (const s of sockets){ if (s.getAttribute("snap-socket") !== pieceId) continue; const sp = new THREE.Vector3(); s.object3D.getWorldPosition(sp); const d = objPos.distanceTo(sp); if (d < 0.22 && d < bestD){ best = s; bestD = d; } } return best; }, snap(socket) { const pieceId = this.el.getAttribute("piece-id"); const sys = this.el.sceneEl.systems.lucian; socket.object3D.attach(this.el.object3D); this.el.setAttribute("position", "0 0 0"); this.el.setAttribute("rotation", "0 0 0"); this.el.setAttribute("scale", "1 1 1"); sys.markCrafted(pieceId); sys.flash(`${NAMES[pieceId]} ATTACHED`); this.el.classList.add("snapped"); } }); // ---------- Hand ray cursor for bench buttons ---------- AFRAME.registerComponent("hand-ray", { init() { const line = document.createElement("a-entity"); line.setAttribute("line", "start: 0 0 0; end: 0 0 -1.5; color: #56e6ff; opacity: 0.7"); this.el.appendChild(line); this.el.setAttribute("raycaster", "objects: .clickable; far: 1.6; showLine: false"); this.el.setAttribute("cursor", "rayOrigin: entity; fuse: false"); } }); </script> html <a-scene background="color: #05070b" renderer="antialias: true; colorManagement: true" vr-mode-ui="enabled: true" webxr="requiredFeatures: hand-tracking, local-floor; optionalFeatures: bounded-floor" lucian-session lucian-teleport > <!-- Rig for teleport --> <a-entity id="rig" position="0 0 0"> <a-entity id="cam" position="0 1.6 0"> <a-camera></a-camera> </a-entity> </a-entity> <!-- Teleport marker --> <a-ring id="teleMarker" visible="false" position="0 0 0" rotation="-90 0 0" radius-inner="0.10" radius-outer="0.13" material="shader: flat; color:#56e6ff; opacity:0.65; transparent:true"></a-ring> <!-- Floor --> <a-plane rotation="-90 0 0" width="30" height="30" material="shader: flat; color:#06111b; opacity:0.25; transparent:true"></a-plane> <!-- Stars --> <a-entity id="stars"></a-entity> <!-- HUD --> <a-entity id="hud" position="0 1.55 -1.35"> <a-entity position="0 0.22 0"> <a-plane width="1.25" height="0.18" color="#06101a" opacity="0.72"></a-plane> <a-plane width="0.02" height="0.18" color="#ffb454" position="-0.615 0 0.011" opacity="0.9"></a-plane> <a-text value="LUCIAN" color="#9ff3ff" align="center" position="0 0.03 0.01" width="2.2" font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text> <a-text id="hudStatus" value="" color="#ffddb1" align="center" position="0 -0.04 0.01" width="2.2" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="-0.82 -0.18 0"> <a-plane width="0.78" height="0.56" color="#06111b" opacity="0.70"></a-plane> <a-text id="hudScore" value="SCORE 0" color="#9ff3ff" align="left" position="-0.35 0.20 0.02" width="1.2" font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text> <a-text id="hudTime" value="TIME 60s" color="#a6f6ff" opacity="0.9" align="left" position="-0.35 0.10 0.02" width="1.2" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> <a-text id="hudIngots" value="INGOTS 0" color="#ffd8a6" opacity="0.95" align="left" position="-0.35 0.00 0.02" width="1.2" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> <a-text value="Touch targets to earn ingots.\nUse bench to spawn parts." color="#a6f6ff" opacity="0.85" align="left" position="-0.35 -0.14 0.02" width="1.2" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.82 -0.18 0"> <a-plane width="0.78" height="0.56" color="#06111b" opacity="0.70"></a-plane> <a-text value="COSTS" color="#ffe7c4" align="left" position="-0.35 0.20 0.02" width="1.2" font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text> <a-text value="visor2 forearm3 shoulder3\nhelmet4 thigh4 chest5 back5" color="#ffd8a6" opacity="0.9" align="left" position="-0.35 0.06 0.02" width="1.25" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> <a-text value="Step 1: spawn + snap only." color="#a6f6ff" opacity="0.85" align="left" position="-0.35 -0.10 0.02" width="1.2" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> </a-entity> <!-- Bench + mannequin --> <a-entity id="bench" position="0 0 -3.2"> <a-box position="0 0.55 0" width="1.4" height="0.10" depth="0.7" material="color:#071421; metalness:0.15; roughness:0.85" opacity="0.95"></a-box> <a-box position="0 0.25 0" width="1.3" height="0.50" depth="0.6" material="color:#06111b; metalness:0.10; roughness:0.9" opacity="0.65"></a-box> <!-- spawn area --> <a-circle id="spawnArea" radius="0.14" position="-0.45 0.61 0.05" rotation="-90 0 0" material="shader: flat; color:#56e6ff; opacity:0.25; transparent:true"></a-circle> <a-ring radius-inner="0.14" radius-outer="0.16" position="-0.45 0.611 0.05" rotation="-90 0 0" material="shader: flat; color:#ffb454; opacity:0.45; transparent:true"></a-ring> <!-- button panel --> <a-plane position="0.45 0.70 0.00" rotation="-60 0 0" width="0.90" height="0.62" material="shader: flat; color:#06101a; opacity:0.85"></a-plane> <!-- buttons --> <a-entity position="0.14 0.76 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: visor"></a-entity> <a-text value="VISOR (2)" position="-0.12 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.14 0.67 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: helmet"></a-entity> <a-text value="HELMET (4)" position="-0.14 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.14 0.58 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#ffb454; opacity:0.28; transparent:true" spawn-button="piece: chest"></a-entity> <a-text value="CHEST (5)" position="-0.14 -0.02 0.01" width="1.0" color="#ffe7c4" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.43 0.76 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: back"></a-entity> <a-text value="BACK (5)" position="-0.12 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.43 0.67 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: shoulderL"></a-entity> <a-text value="SHOUL L (3)" position="-0.14 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.43 0.58 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: shoulderR"></a-entity> <a-text value="SHOUL R (3)" position="-0.14 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.72 0.76 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: forearmL"></a-entity> <a-text value="FORE L (3)" position="-0.14 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.72 0.67 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: forearmR"></a-entity> <a-text value="FORE R (3)" position="-0.14 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.72 0.58 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: thighL"></a-entity> <a-text value="THIGH L (4)" position="-0.14 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <a-entity position="0.72 0.49 0.18"> <a-entity class="clickable" geometry="primitive: plane; width: 0.26; height: 0.08" material="shader: flat; color:#56e6ff; opacity:0.35; transparent:true" spawn-button="piece: thighR"></a-entity> <a-text value="THIGH R (4)" position="-0.14 -0.02 0.01" width="1.0" color="#9ff3ff" font="https://cdn.aframe.io/fonts/Exo2SemiBold.fnt"></a-text> </a-entity> <!-- mannequin base + sockets --> <a-cylinder position="0 0.10 0" radius="0.28" height="0.18" material="color:#06111b; metalness:0.1; roughness:0.9" opacity="0.85"></a-cylinder> <a-cylinder position="0 0.85 0" radius="0.08" height="1.30" material="shader: flat; color:#56e6ff; opacity:0.08; transparent:true"></a-cylinder> <a-entity id="mannequin" position="0 0.10 0"> <!-- head sockets --> <a-entity snap-socket="helmet" position="0 1.55 0"> <a-sphere radius="0.05" material="shader: flat; color:#ffb454; opacity:0.18; transparent:true"></a-sphere> </a-entity> <a-entity snap-socket="visor" position="0 1.48 0.07"> <a-sphere radius="0.04" material="shader: flat; color:#56e6ff; opacity:0.15; transparent:true"></a-sphere> </a-entity> <!-- torso sockets --> <a-entity snap-socket="chest" position="0 1.20 0.08"> <a-sphere radius="0.055" material="shader: flat; color:#ffb454; opacity:0.15; transparent:true"></a-sphere> </a-entity> <a-entity snap-socket="back" position="0 1.20 -0.08"> <a-sphere radius="0.055" material="shader: flat; color:#56e6ff; opacity:0.15; transparent:true"></a-sphere> </a-entity> <!-- shoulders --> <a-entity snap-socket="shoulderL" position="-0.22 1.28 0.00"> <a-sphere radius="0.05" material="shader: flat; color:#56e6ff; opacity:0.12; transparent:true"></a-sphere> </a-entity> <a-entity snap-socket="shoulderR" position="0.22 1.28 0.00"> <a-sphere radius="0.05" material="shader: flat; color:#56e6ff; opacity:0.12; transparent:true"></a-sphere> </a-entity> <!-- forearms --> <a-entity snap-socket="forearmL" position="-0.34 1.05 0.05"> <a-sphere radius="0.05" material="shader: flat; color:#ffb454; opacity:0.12; transparent:true"></a-sphere> </a-entity> <a-entity snap-socket="forearmR" position="0.34 1.05 0.05"> <a-sphere radius="0.05" material="shader: flat; color:#ffb454; opacity:0.12; transparent:true"></a-sphere> </a-entity> <!-- thighs --> <a-entity snap-socket="thighL" position="-0.14 0.75 0.04"> <a-sphere radius="0.05" material="shader: flat; color:#56e6ff; opacity:0.12; transparent:true"></a-sphere> </a-entity> <a-entity snap-socket="thighR" position="0.14 0.75 0.04"> <a-sphere radius="0.05" material="shader: flat; color:#56e6ff; opacity:0.12; transparent:true"></a-sphere> </a-entity> </a-entity> </a-entity> html <a-entity id="leftHand" tracked-controls-webxr="hand: left"></a-entity>html <a-entity id="rightHand" tracked-controls-webxr="hand: right" hand-ray></a-entity></a-entity> <script> // Hook HUD elements into system once scene is loaded const scene = document.querySelector("a-scene"); scene.addEventListener("loaded", () => { const sys = scene.systems.lucian; sys.setHUD( document.querySelector("#hudScore"), document.querySelector("#hudTime"), document.querySelector("#hudIngots"), document.querySelector("#hudStatus") ); // Stars const stars = document.querySelector("#stars"); for (let i=0;i<900;i++){ const s = document.createElement("a-sphere"); const r = 10 + Math.random()*12; const t = Math.random()*Math.PI*2; const p = (Math.random()-0.5)*Math.PI; const x = Math.cos(t)*Math.cos(p)*r; const y = (Math.sin(p)*r*0.6) + 1.0; const z = Math.sin(t)*Math.cos(p)*r; s.setAttribute("position", `${x} ${y} ${z}`); s.setAttribute("radius", 0.01 + Math.random()*0.015); s.setAttribute("material", `shader: flat; color: #2aa6c9; opacity: ${0.25+Math.random()*0.35}; transparent: true`); stars.appendChild(s); } // Attach palm-pop once hands actually connect const l = document.querySelector("#leftHand"); const r = document.querySelector("#rightHand"); l.addEventListener("controllerconnected", () => l.setAttribute("palm-pop",""), {once:true}); r.addEventListener("controllerconnected", () => r.setAttribute("palm-pop",""), {once:true}); }); </script> </a-scene> </body> </html> 
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Iron Man VR - REAL HUD</title>
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+</head>
+
+<body>
+<a-scene webxr="optionalFeatures: local-floor;" renderer="colorManagement:true">
+
+<!-- CAMERA RIG -->
+<a-entity id="rig">
+  <a-entity id="camera" camera position="0 1.6 0"></a-entity>
+</a-entity>
+
+<!-- HANDS -->
+<a-entity id="leftHand" hand-tracking-controls="hand: left"></a-entity>
+<a-entity id="rightHand" hand-tracking-controls="hand: right"></a-entity>
+
+<!-- LIGHTING (more realistic) -->
+<a-light type="ambient" intensity="0.5"></a-light>
+<a-light type="directional" position="3 5 -2" intensity="1.2"></a-light>
+
+<!-- 🌆 SKY -->
+<a-sky color="#111"></a-sky>
+
+<!-- 🪞 MIRROR -->
+<a-plane position="0 1.6 -3" width="2" height="2"
+material="color:#888; metalness:1; roughness:0.1;"></a-plane>
+
+<!-- 🎯 TARGET -->
+<a-sphere id="target" radius="0.2" color="#ff3333"></a-sphere>
+
+<!-- ⚡ ARC REACTOR -->
+<a-sphere id="reactor" radius="0.09" color="#00ccff" position="0 1.2 -2"
+material="emissive:#00ccff; emissiveIntensity:2;"></a-sphere>
+
+<!-- 🤖 ARMOR (more realistic metal look) -->
+<a-entity id="helmet" geometry="primitive:sphere;radius:0.23"
+material="color:#aa0000; metalness:0.8; roughness:0.2;"></a-entity>
+
+<a-entity id="chest" geometry="primitive:box;width:0.45;height:0.5;depth:0.25"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<a-entity id="waist" geometry="primitive:box;width:0.4;height:0.25;depth:0.2"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<a-entity id="leftArmArmor" geometry="primitive:cylinder;radius:0.09;height:0.55"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<a-entity id="rightArmArmor" geometry="primitive:cylinder;radius:0.09;height:0.55"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<a-entity id="leftLeg" geometry="primitive:cylinder;radius:0.1;height:0.65"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<a-entity id="rightLeg" geometry="primitive:cylinder;radius:0.1;height:0.65"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<a-entity id="leftFoot" geometry="primitive:box;width:0.22;height:0.1;depth:0.32"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<a-entity id="rightFoot" geometry="primitive:box;width:0.22;height:0.1;depth:0.32"
+material="color:#aa0000; metalness:0.8;"></a-entity>
+
+<!-- 🧠 HUD -->
+<a-entity id="hud" visible="false">
+  <!-- visor tint -->
+  <a-plane position="0 0 -0.6" width="1.2" height="0.8"
+  material="color:#00ffff; opacity:0.08"></a-plane>
+
+  <!-- crosshair -->
+  <a-ring position="0 0 -0.7" radius-inner="0.01" radius-outer="0.02"
+  color="#00ffff"></a-ring>
+
+  <!-- text -->
+  <a-text id="hudText" value="SYSTEM ONLINE"
+  position="-0.4 0.3 -0.7" color="#00ffff" width="1.5"></a-text>
+</a-entity>
+
+</a-scene>
+
+<script>
+// STATE
+let ingots=0;
+let nanoUnlocked=false;
+let helmetOn=false;
+let suitEjected=false;
+
+let cam=document.querySelector("#camera");
+let rig=document.querySelector("#rig");
+let hud=document.querySelector("#hud");
+let hudText=document.querySelector("#hudText");
+
+// JARVIS
+async function askJarvis(text){
+  try{
+    let res=await fetch("https://virtual-mind-companion--romalucian.replit.app/",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:text})
+    });
+
+    let type=res.headers.get("content-type");
+
+    if(type.includes("json")){
+      let data=await res.json();
+      if(data.audio) new Audio(data.audio).play();
+      else speak(data.response);
+    }else{
+      let blob=await res.blob();
+      new Audio(URL.createObjectURL(blob)).play();
+    }
+
+  }catch{
+    speak("Connection failed");
+  }
+}
+
+// VOICE
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=new SR();
+rec.continuous=true;
+
+rec.onresult=(e)=>{
+  let t=e.results[e.results.length-1][0].transcript.toLowerCase();
+
+  if(t.includes("jarvis open mask")) return openMask();
+  if(t.includes("jarvis close mask")) return closeMask();
+  if(t.includes("jarvis eject")) return ejectSuit();
+
+  if(!helmetOn||!t.includes("jarvis")) return;
+
+  askJarvis(t.replace("jarvis",""));
+};
+rec.start();
+
+function speak(t){
+  if(!helmetOn) return;
+  speechSynthesis.speak(new SpeechSynthesisUtterance(t));
+}
+
+// HELPERS
+function d(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2+(a.z-b.z)**2);}
+
+// TARGET
+let target=document.querySelector("#target");
+function respawn(){
+  let p=cam.object3D.position;
+  target.setAttribute("position",{x:p.x+(Math.random()-0.5)*3,y:p.y+Math.random()*2,z:p.z-2});
+}
+
+// ARMOR ATTACH
+function attach(id,o){
+  let p=document.querySelector(id);
+  let c=cam.object3D.position;
+  p.object3D.position.set(c.x+o.x,c.y+o.y,c.z+o.z);
+}
+
+// MASK
+function openMask(){helmetOn=false; hud.setAttribute("visible",false);}
+function closeMask(){helmetOn=true; hud.setAttribute("visible",true);}
+
+// EJECT
+function ejectSuit(){
+  suitEjected=true;
+}
+
+// LOOP
+function loop(){
+
+  let camPos=cam.object3D.position;
+
+  // TARGET HIT
+  if(d(camPos,target.object3D.position)<0.4){
+    ingots+=0.25;
+    if(ingots>=60) nanoUnlocked=true;
+    respawn();
+    hudText.setAttribute("value","INGOTS: "+ingots.toFixed(2));
+  }
+
+  // ATTACH ARMOR
+  if(nanoUnlocked&&!suitEjected){
+    attach("#helmet",{x:0,y:0,z:-0.1});
+    attach("#chest",{x:0,y:-0.4,z:-0.1});
+    attach("#waist",{x:0,y:-0.75,z:-0.1});
+    attach("#leftArmArmor",{x:-0.4,y:-0.2,z:-0.1});
+    attach("#rightArmArmor",{x:0.4,y:-0.2,z:-0.1});
+    attach("#leftLeg",{x:-0.2,y:-1.2,z:-0.1});
+    attach("#rightLeg",{x:0.2,y:-1.2,z:-0.1});
+    attach("#leftFoot",{x:-0.2,y:-1.6,z:0});
+    attach("#rightFoot",{x:0.2,y:-1.6,z:0});
+  }
+
+  // FLY
+  if(leftHand.object3D && rightHand.object3D){
+    if(leftHand.object3D.position.y>camPos.y+0.5 &&
+       rightHand.object3D.position.y>camPos.y+0.5){
+      rig.object3D.position.y+=0.05;
+
+      // THRUSTERS
+      let flame=document.createElement("a-sphere");
+      flame.setAttribute("radius",0.05);
+      flame.setAttribute("color","#00ccff");
+      flame.setAttribute("position",camPos);
+      document.querySelector("a-scene").appendChild(flame);
+      setTimeout(()=>flame.remove(),200);
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+respawn();
+loop();
+</script>
+
+</body>
+</html>
