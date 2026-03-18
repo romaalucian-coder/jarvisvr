@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Iron Forge VR - Full Crafting</title>
+  <title>Iron Forge VR - Shapes Version</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
@@ -11,7 +11,7 @@
 </head>
 <body>
 <a-scene vr-mode-ui="enabled: true" background="color: #000000" hand-tracking="hands: all">
-  
+
   <!-- Environment -->
   <a-entity environment="preset: warehouse; groundColor: #222; skyColor: #111;"></a-entity>
 
@@ -22,26 +22,15 @@
     </a-camera>
   </a-entity>
 
-  <!-- Full-body Armor Pieces (hidden initially) -->
-  <a-assets>
-    <a-asset-item id="helmetModel" src="https://cdn.glitch.global/placeholder/helmet.glb?v=1"></a-asset-item>
-    <a-asset-item id="chestModel" src="https://cdn.glitch.global/placeholder/chest.glb?v=1"></a-asset-item>
-    <a-asset-item id="armsModel" src="https://cdn.glitch.global/placeholder/arms.glb?v=1"></a-asset-item>
-    <a-asset-item id="legsModel" src="https://cdn.glitch.global/placeholder/legs.glb?v=1"></a-asset-item>
-    <a-asset-item id="bootsModel" src="https://cdn.glitch.global/placeholder/boots.glb?v=1"></a-asset-item>
-    <a-asset-item id="hammerModel" src="https://cdn.glitch.global/placeholder/hammer.glb?v=1"></a-asset-item>
-  </a-assets>
+  <!-- Armor pieces (colored shapes) -->
+  <a-box id="helmet" visible="false" position="0 1.7 0" depth="0.3" height="0.2" width="0.3" color="#ff0000"></a-box>
+  <a-box id="chest" visible="false" position="0 1.5 0" depth="0.4" height="0.4" width="0.4" color="#ff8000"></a-box>
+  <a-box id="arms" visible="false" position="0 1.5 0" depth="0.15" height="0.4" width="0.4" color="#ffff00"></a-box>
+  <a-box id="legs" visible="false" position="0 1.0 0" depth="0.3" height="0.4" width="0.3" color="#00ff00"></a-box>
+  <a-box id="boots" visible="false" position="0 0.5 0" depth="0.3" height="0.2" width="0.3" color="#00ffff"></a-box>
 
-  <a-entity id="armor">
-    <a-entity id="helmet" gltf-model="#helmetModel" visible="false" position="0 1.7 0"></a-entity>
-    <a-entity id="chest" gltf-model="#chestModel" visible="false" position="0 1.5 0"></a-entity>
-    <a-entity id="arms" gltf-model="#armsModel" visible="false" position="0 1.5 0"></a-entity>
-    <a-entity id="legs" gltf-model="#legsModel" visible="false" position="0 1.0 0"></a-entity>
-    <a-entity id="boots" gltf-model="#bootsModel" visible="false" position="0 0.5 0"></a-entity>
-  </a-entity>
-
-  <!-- Hammer -->
-  <a-entity id="hammer" gltf-model="#hammerModel" position="0.5 1.4 -0.5" scale="0.3 0.3 0.3"></a-entity>
+  <!-- Hammer (cylinder) -->
+  <a-cylinder id="hammer" position="0.5 1.4 -0.5" radius="0.05" height="0.5" color="#8888ff" rotation="90 0 0"></a-cylinder>
 
   <!-- Targets -->
   <a-box class="target" position="2 1 -3" depth="0.5" height="0.5" width="0.5" color="#f00"></a-box>
@@ -57,7 +46,7 @@
   </a-entity>
 
   <!-- Teleport Marker -->
-  <a-entity id="teleportMarker" geometry="primitive: sphere; radius: 0.1" material="color: cyan; opacity: 0.5" visible="false"></a-entity>
+  <a-sphere id="teleportMarker" radius="0.1" color="cyan" opacity="0.5" visible="false"></a-sphere>
 
   <!-- Hand Tracking -->
   <a-entity hand-tracking-controls="hand: left"></a-entity>
@@ -73,7 +62,6 @@
     };
     let craftingPoints = 0;
     const hud = document.querySelector('#hud');
-    const hammer = document.querySelector('#hammer');
     const targets = document.querySelectorAll('.target');
     const menu = document.querySelector('#menu');
     const player = document.querySelector('#player');
@@ -96,7 +84,7 @@
         const leftHand = document.querySelector('[hand-tracking-controls][hand="left"]');
         const rightHand = document.querySelector('[hand-tracking-controls][hand="right"]');
 
-        // Right-hand pinch toggles armor visibility
+        // Right-hand pinch toggles all armor visibility
         if (rightHand && rightHand.components['hand-tracking'].pinch) {
           for (const key in armorPieces) {
             armorPieces[key].el.setAttribute('visible', true);
@@ -108,21 +96,20 @@
           menu.setAttribute('visible', !menu.getAttribute('visible'));
         }
 
-        // Hammer hitting targets
+        // Hammer hits targets
         targets.forEach(target => {
           if (rightHand) {
             const handPos = rightHand.object3D.position;
             const targetPos = target.object3D.position;
             if (handPos.distanceTo(targetPos) < 0.25) {
               target.setAttribute('color', '#0f0');
-              craftingPoints += 10; // Each hit gives 10 points
-              // Distribute points to armor pieces not yet completed
+              craftingPoints += 10;
               for (const key in armorPieces) {
                 if (armorPieces[key].points < armorPieces[key].needed) {
                   armorPieces[key].points += 10;
                   if (armorPieces[key].points > armorPieces[key].needed) armorPieces[key].points = armorPieces[key].needed;
                   armorPieces[key].el.setAttribute('visible', armorPieces[key].points >= armorPieces[key].needed);
-                  break; // Give points to one piece at a time
+                  break;
                 }
               }
               updateHUD();
@@ -130,10 +117,10 @@
           }
         });
 
-        // Teleportation (left-hand thumb-middle gesture)
+        // Teleport (left-hand thumb-middle)
         if (leftHand && leftHand.components['hand-tracking'].thumbMiddle) {
           const handPos = leftHand.object3D.position;
-          const forward = new THREE.Vector3(0, 0, -0.91);
+          const forward = new THREE.Vector3(0,0,-0.91);
           forward.applyQuaternion(leftHand.object3D.quaternion);
           teleportPos = handPos.clone().add(forward);
           teleportMarker.setAttribute('position', teleportPos);
@@ -144,7 +131,7 @@
           teleporting = false;
         }
 
-        // Tap while holding teleport gesture
+        // Tap while holding teleport
         if (teleporting && leftHand && leftHand.components['hand-tracking'].pinch) {
           player.object3D.position.copy(teleportPos);
           teleporting = false;
