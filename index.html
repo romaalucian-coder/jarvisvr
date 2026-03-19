@@ -1,148 +1,210 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Iron Forge VR - Shapes Version</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-environment-component@1.3.1/dist/aframe-environment-component.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-hand-tracking-component@1.0.2/dist/aframe-hand-tracking-component.min.js"></script>
+<meta charset="utf-8">
+<title>Iron Man VR - Stark Workshop</title>
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 </head>
+
 <body>
-<a-scene vr-mode-ui="enabled: true" background="color: #000000" hand-tracking="hands: all">
+<a-scene background="color:#050505">
 
-  <!-- Environment -->
-  <a-entity environment="preset: warehouse; groundColor: #222; skyColor: #111;"></a-entity>
+<!-- CAMERA -->
+<a-entity id="rig">
+  <a-entity id="camera" camera position="0 1.6 0">
 
-  <!-- Player Camera & HUD -->
-  <a-entity id="player" position="0 1.6 0">
-    <a-camera>
-      <a-entity id="hud" position="0 -0.2 -0.5" text="value: Crafting Points: 0\nArmor Progress:\nHelmet: 0/50\nChest: 0/100\nArms: 0/80\nLegs: 0/80\nBoots: 0/40; color: #0f0; width: 2"></a-entity>
-    </a-camera>
+    <!-- HUD -->
+    <a-entity id="hud" visible="false">
+      <a-plane position="0 0 -0.6" width="1.2" height="0.8"
+      color="#00ffff" opacity="0.07"></a-plane>
+
+      <a-ring position="0 0 -0.7"
+      radius-inner="0.01" radius-outer="0.02"
+      color="#00ffff"></a-ring>
+
+      <a-text id="hudText"
+      value="SYSTEM OFFLINE"
+      position="-0.45 0.3 -0.7"
+      color="#00ffff"></a-text>
+    </a-entity>
+
   </a-entity>
+</a-entity>
 
-  <!-- Armor pieces (colored shapes) -->
-  <a-box id="helmet" visible="false" position="0 1.7 0" depth="0.3" height="0.2" width="0.3" color="#ff0000"></a-box>
-  <a-box id="chest" visible="false" position="0 1.5 0" depth="0.4" height="0.4" width="0.4" color="#ff8000"></a-box>
-  <a-box id="arms" visible="false" position="0 1.5 0" depth="0.15" height="0.4" width="0.4" color="#ffff00"></a-box>
-  <a-box id="legs" visible="false" position="0 1.0 0" depth="0.3" height="0.4" width="0.3" color="#00ff00"></a-box>
-  <a-box id="boots" visible="false" position="0 0.5 0" depth="0.3" height="0.2" width="0.3" color="#00ffff"></a-box>
+<!-- HANDS -->
+<a-entity id="leftHand" hand-tracking-controls="hand: left"></a-entity>
+<a-entity id="rightHand" hand-tracking-controls="hand: right"></a-entity>
 
-  <!-- Hammer (cylinder) -->
-  <a-cylinder id="hammer" position="0.5 1.4 -0.5" radius="0.05" height="0.5" color="#8888ff" rotation="90 0 0"></a-cylinder>
+<!-- LIGHTING -->
+<a-light type="ambient" intensity="0.3"></a-light>
+<a-light type="point" position="0 3 -2" intensity="1.5" color="#00ccff"></a-light>
 
-  <!-- Targets -->
-  <a-box class="target" position="2 1 -3" depth="0.5" height="0.5" width="0.5" color="#f00"></a-box>
-  <a-box class="target" position="-2 1 -3" depth="0.5" height="0.5" width="0.5" color="#f00"></a-box>
+<!-- 🏭 WORKSHOP FLOOR -->
+<a-plane rotation="-90 0 0" width="20" height="20" color="#222"></a-plane>
 
-  <!-- Ground -->
-  <a-plane rotation="-90 0 0" width="20" height="20" color="#333"></a-plane>
+<!-- WALLS -->
+<a-box position="0 2 -5" width="10" height="4" depth="0.2" color="#111"></a-box>
+<a-box position="-5 2 0" width="0.2" height="4" depth="10" color="#111"></a-box>
+<a-box position="5 2 0" width="0.2" height="4" depth="10" color="#111"></a-box>
 
-  <!-- Options Menu -->
-  <a-entity id="menu" position="0 1 -1" visible="false">
-    <a-plane width="1" height="1" color="#222" opacity="0.8"></a-plane>
-    <a-text value="Options Menu\nLeft hand: Teleport\nRight hand pinch: Toggle armor\nUse hammer to hit targets" color="#0f0" position="-0.45 0.3 0"></a-text>
-  </a-entity>
+<!-- WORKBENCH -->
+<a-box position="0 1 -2" width="2" height="1" depth="1" color="#333"></a-box>
 
-  <!-- Teleport Marker -->
-  <a-sphere id="teleportMarker" radius="0.1" color="cyan" opacity="0.5" visible="false"></a-sphere>
+<!-- 🎯 TARGET (REAL LOOK) -->
+<a-entity id="target">
+  <a-cylinder radius="0.25" height="0.05" color="white"></a-cylinder>
+  <a-cylinder radius="0.18" height="0.06" color="red"></a-cylinder>
+  <a-cylinder radius="0.1" height="0.07" color="white"></a-cylinder>
+</a-entity>
 
-  <!-- Hand Tracking -->
-  <a-entity hand-tracking-controls="hand: left"></a-entity>
-  <a-entity hand-tracking-controls="hand: right"></a-entity>
+<!-- ARC REACTOR -->
+<a-sphere id="reactor" radius="0.08"
+color="#00ccff" position="0 1.2 -2"
+material="emissive:#00ccff; emissiveIntensity:2"></a-sphere>
 
-  <script>
-    const armorPieces = {
-      helmet: {el: document.querySelector('#helmet'), points: 0, needed: 50},
-      chest: {el: document.querySelector('#chest'), points: 0, needed: 100},
-      arms: {el: document.querySelector('#arms'), points: 0, needed: 80},
-      legs: {el: document.querySelector('#legs'), points: 0, needed: 80},
-      boots: {el: document.querySelector('#boots'), points: 0, needed: 40},
-    };
-    let craftingPoints = 0;
-    const hud = document.querySelector('#hud');
-    const targets = document.querySelectorAll('.target');
-    const menu = document.querySelector('#menu');
-    const player = document.querySelector('#player');
-    const teleportMarker = document.querySelector('#teleportMarker');
-    let teleporting = false;
-    let teleportPos = null;
+<!-- ARMOR (INVISIBLE AT START) -->
+<a-entity id="helmet" visible="false"
+geometry="primitive:sphere;radius:0.23"
+material="color:#aa0000; metalness:1"></a-entity>
 
-    function updateHUD() {
-      hud.setAttribute('text', 'value',
-        `Crafting Points: ${craftingPoints}\nArmor Progress:\n` +
-        `Helmet: ${armorPieces.helmet.points}/${armorPieces.helmet.needed}\n` +
-        `Chest: ${armorPieces.chest.points}/${armorPieces.chest.needed}\n` +
-        `Arms: ${armorPieces.arms.points}/${armorPieces.arms.needed}\n` +
-        `Legs: ${armorPieces.legs.points}/${armorPieces.legs.needed}\n` +
-        `Boots: ${armorPieces.boots.points}/${armorPieces.boots.needed}`);
-    }
+<a-box id="chest" visible="false" width="0.45" height="0.5" depth="0.25"
+color="#aa0000"></a-box>
 
-    AFRAME.registerComponent('hand-interaction', {
-      tick: function () {
-        const leftHand = document.querySelector('[hand-tracking-controls][hand="left"]');
-        const rightHand = document.querySelector('[hand-tracking-controls][hand="right"]');
+<a-box id="waist" visible="false" width="0.4" height="0.25" depth="0.2"
+color="#aa0000"></a-box>
 
-        // Right-hand pinch toggles all armor visibility
-        if (rightHand && rightHand.components['hand-tracking'].pinch) {
-          for (const key in armorPieces) {
-            armorPieces[key].el.setAttribute('visible', true);
-          }
-        }
+<a-cylinder id="leftArmArmor" visible="false" radius="0.09" height="0.55"
+color="#aa0000"></a-cylinder>
 
-        // Left-hand pinch toggles menu
-        if (leftHand && leftHand.components['hand-tracking'].pinch) {
-          menu.setAttribute('visible', !menu.getAttribute('visible'));
-        }
+<a-cylinder id="rightArmArmor" visible="false" radius="0.09" height="0.55"
+color="#aa0000"></a-cylinder>
 
-        // Hammer hits targets
-        targets.forEach(target => {
-          if (rightHand) {
-            const handPos = rightHand.object3D.position;
-            const targetPos = target.object3D.position;
-            if (handPos.distanceTo(targetPos) < 0.25) {
-              target.setAttribute('color', '#0f0');
-              craftingPoints += 10;
-              for (const key in armorPieces) {
-                if (armorPieces[key].points < armorPieces[key].needed) {
-                  armorPieces[key].points += 10;
-                  if (armorPieces[key].points > armorPieces[key].needed) armorPieces[key].points = armorPieces[key].needed;
-                  armorPieces[key].el.setAttribute('visible', armorPieces[key].points >= armorPieces[key].needed);
-                  break;
-                }
-              }
-              updateHUD();
-            }
-          }
-        });
+<a-cylinder id="leftLeg" visible="false" radius="0.1" height="0.65"
+color="#aa0000"></a-cylinder>
 
-        // Teleport (left-hand thumb-middle)
-        if (leftHand && leftHand.components['hand-tracking'].thumbMiddle) {
-          const handPos = leftHand.object3D.position;
-          const forward = new THREE.Vector3(0,0,-0.91);
-          forward.applyQuaternion(leftHand.object3D.quaternion);
-          teleportPos = handPos.clone().add(forward);
-          teleportMarker.setAttribute('position', teleportPos);
-          teleportMarker.setAttribute('visible', true);
-          teleporting = true;
-        } else {
-          teleportMarker.setAttribute('visible', false);
-          teleporting = false;
-        }
+<a-cylinder id="rightLeg" visible="false" radius="0.1" height="0.65"
+color="#aa0000"></a-cylinder>
 
-        // Tap while holding teleport
-        if (teleporting && leftHand && leftHand.components['hand-tracking'].pinch) {
-          player.object3D.position.copy(teleportPos);
-          teleporting = false;
-          teleportMarker.setAttribute('visible', false);
-        }
-      }
-    });
+<a-box id="leftFoot" visible="false" width="0.22" height="0.1" depth="0.32"
+color="#aa0000"></a-box>
 
-    document.querySelector('a-scene').setAttribute('hand-interaction', '');
-    updateHUD();
-  </script>
+<a-box id="rightFoot" visible="false" width="0.22" height="0.1" depth="0.32"
+color="#aa0000"></a-box>
+
+<!-- DEBUG MENU -->
+<a-plane id="menu" visible="false"
+position="0 1.6 -1"
+width="1.2" height="0.8"
+color="#000" opacity="0.8"></a-plane>
+
 </a-scene>
+
+<script>
+
+// BASIC
+let cam = document.querySelector("#camera");
+let rig = document.querySelector("#rig");
+let target = document.querySelector("#target");
+let hud = document.querySelector("#hud");
+let hudText = document.querySelector("#hudText");
+
+let ingots = 0;
+let nanoUnlocked = false;
+let helmetOn = false;
+let menuOpen = false;
+
+// DISTANCE
+function d(a,b){
+  return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2+(a.z-b.z)**2);
+}
+
+// TARGET SPAWN
+function spawnTarget(){
+  let p = cam.object3D.position;
+  target.object3D.position.set(
+    p.x + (Math.random()-0.5)*3,
+    p.y + Math.random()*1.5,
+    p.z - 2
+  );
+}
+spawnTarget();
+
+// TELEPORT (3 feet forward)
+document.addEventListener("click", ()=>{
+  let dir = new THREE.Vector3();
+  cam.object3D.getWorldDirection(dir);
+
+  rig.object3D.position.add({
+    x: dir.x * 1,
+    y: 0,
+    z: dir.z * 1
+  });
+});
+
+// DEBUG MENU (press "O" on keyboard or Quest button)
+document.addEventListener("keydown",(e)=>{
+  if(e.key.toLowerCase()==="o"){
+    menuOpen = !menuOpen;
+    document.querySelector("#menu").setAttribute("visible",menuOpen);
+  }
+});
+
+// ARMOR SHOW
+function showArmor(){
+  [
+    "helmet","chest","waist",
+    "leftArmArmor","rightArmArmor",
+    "leftLeg","rightLeg",
+    "leftFoot","rightFoot"
+  ].forEach(id=>{
+    document.querySelector("#"+id).setAttribute("visible",true);
+  });
+}
+
+// LOOP
+function loop(){
+
+  let camPos = cam.object3D.position;
+
+  // TARGET HIT
+  if(d(camPos,target.object3D.position)<0.4){
+    ingots += 0.25;
+    hudText.setAttribute("value","INGOTS: "+ingots.toFixed(2));
+    spawnTarget();
+
+    if(ingots >= 60){
+      nanoUnlocked = true;
+      showArmor();
+      hud.setAttribute("visible",true);
+      helmetOn = true;
+      hudText.setAttribute("value","NANO SUIT READY");
+    }
+  }
+
+  // ATTACH ARMOR
+  if(nanoUnlocked){
+    let c = camPos;
+
+    document.querySelector("#helmet").object3D.position.set(c.x,c.y,c.z-0.1);
+    document.querySelector("#chest").object3D.position.set(c.x,c.y-0.4,c.z-0.1);
+    document.querySelector("#waist").object3D.position.set(c.x,c.y-0.75,c.z-0.1);
+
+    document.querySelector("#leftArmArmor").object3D.position.set(c.x-0.4,c.y-0.2,c.z-0.1);
+    document.querySelector("#rightArmArmor").object3D.position.set(c.x+0.4,c.y-0.2,c.z-0.1);
+
+    document.querySelector("#leftLeg").object3D.position.set(c.x-0.2,c.y-1.2,c.z-0.1);
+    document.querySelector("#rightLeg").object3D.position.set(c.x+0.2,c.y-1.2,c.z-0.1);
+
+    document.querySelector("#leftFoot").object3D.position.set(c.x-0.2,c.y-1.6,c.z);
+    document.querySelector("#rightFoot").object3D.position.set(c.x+0.2,c.y-1.6,c.z);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+
+</script>
+
 </body>
 </html>
