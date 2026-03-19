@@ -2,12 +2,12 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Iron Man VR - Stark Workshop</title>
+<title>Iron Man VR - HAND TRACKING ONLY</title>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 </head>
 
 <body>
-<a-scene background="color:#050505">
+<a-scene>
 
 <!-- CAMERA -->
 <a-entity id="rig">
@@ -15,17 +15,8 @@
 
     <!-- HUD -->
     <a-entity id="hud" visible="false">
-      <a-plane position="0 0 -0.6" width="1.2" height="0.8"
-      color="#00ffff" opacity="0.07"></a-plane>
-
-      <a-ring position="0 0 -0.7"
-      radius-inner="0.01" radius-outer="0.02"
-      color="#00ffff"></a-ring>
-
-      <a-text id="hudText"
-      value="SYSTEM OFFLINE"
-      position="-0.45 0.3 -0.7"
-      color="#00ffff"></a-text>
+      <a-ring position="0 0 -0.7" radius-inner="0.01" radius-outer="0.02" color="#00ffff"></a-ring>
+      <a-text id="hudText" value="BOOTING..." position="-0.4 0.3 -0.7" color="#00ffff"></a-text>
     </a-entity>
 
   </a-entity>
@@ -35,82 +26,40 @@
 <a-entity id="leftHand" hand-tracking-controls="hand: left"></a-entity>
 <a-entity id="rightHand" hand-tracking-controls="hand: right"></a-entity>
 
-<!-- LIGHTING -->
-<a-light type="ambient" intensity="0.3"></a-light>
-<a-light type="point" position="0 3 -2" intensity="1.5" color="#00ccff"></a-light>
+<!-- LIGHT -->
+<a-light type="ambient" intensity="0.6"></a-light>
 
-<!-- 🏭 WORKSHOP FLOOR -->
+<!-- FLOOR -->
 <a-plane rotation="-90 0 0" width="20" height="20" color="#222"></a-plane>
 
-<!-- WALLS -->
-<a-box position="0 2 -5" width="10" height="4" depth="0.2" color="#111"></a-box>
-<a-box position="-5 2 0" width="0.2" height="4" depth="10" color="#111"></a-box>
-<a-box position="5 2 0" width="0.2" height="4" depth="10" color="#111"></a-box>
-
-<!-- WORKBENCH -->
-<a-box position="0 1 -2" width="2" height="1" depth="1" color="#333"></a-box>
-
-<!-- 🎯 TARGET (REAL LOOK) -->
+<!-- TARGET -->
 <a-entity id="target">
   <a-cylinder radius="0.25" height="0.05" color="white"></a-cylinder>
   <a-cylinder radius="0.18" height="0.06" color="red"></a-cylinder>
   <a-cylinder radius="0.1" height="0.07" color="white"></a-cylinder>
 </a-entity>
 
-<!-- ARC REACTOR -->
-<a-sphere id="reactor" radius="0.08"
-color="#00ccff" position="0 1.2 -2"
-material="emissive:#00ccff; emissiveIntensity:2"></a-sphere>
-
-<!-- ARMOR (INVISIBLE AT START) -->
-<a-entity id="helmet" visible="false"
-geometry="primitive:sphere;radius:0.23"
-material="color:#aa0000; metalness:1"></a-entity>
-
-<a-box id="chest" visible="false" width="0.45" height="0.5" depth="0.25"
-color="#aa0000"></a-box>
-
-<a-box id="waist" visible="false" width="0.4" height="0.25" depth="0.2"
-color="#aa0000"></a-box>
-
-<a-cylinder id="leftArmArmor" visible="false" radius="0.09" height="0.55"
-color="#aa0000"></a-cylinder>
-
-<a-cylinder id="rightArmArmor" visible="false" radius="0.09" height="0.55"
-color="#aa0000"></a-cylinder>
-
-<a-cylinder id="leftLeg" visible="false" radius="0.1" height="0.65"
-color="#aa0000"></a-cylinder>
-
-<a-cylinder id="rightLeg" visible="false" radius="0.1" height="0.65"
-color="#aa0000"></a-cylinder>
-
-<a-box id="leftFoot" visible="false" width="0.22" height="0.1" depth="0.32"
-color="#aa0000"></a-box>
-
-<a-box id="rightFoot" visible="false" width="0.22" height="0.1" depth="0.32"
-color="#aa0000"></a-box>
+<!-- ARMOR (hidden at start) -->
+<a-sphere id="helmet" visible="false" radius="0.23" color="red"></a-sphere>
+<a-box id="chest" visible="false" width="0.45" height="0.5" depth="0.25" color="red"></a-box>
 
 <!-- DEBUG MENU -->
-<a-plane id="menu" visible="false"
-position="0 1.6 -1"
-width="1.2" height="0.8"
-color="#000" opacity="0.8"></a-plane>
+<a-plane id="menu" visible="false" position="0 1.6 -1" width="1.2" height="0.8" color="black" opacity="0.8"></a-plane>
 
 </a-scene>
 
 <script>
 
-// BASIC
+// BASICS
 let cam = document.querySelector("#camera");
 let rig = document.querySelector("#rig");
-let target = document.querySelector("#target");
+let leftHand = document.querySelector("#leftHand");
+let rightHand = document.querySelector("#rightHand");
 let hud = document.querySelector("#hud");
 let hudText = document.querySelector("#hudText");
 
 let ingots = 0;
 let nanoUnlocked = false;
-let helmetOn = false;
 let menuOpen = false;
 
 // DISTANCE
@@ -118,7 +67,8 @@ function d(a,b){
   return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2+(a.z-b.z)**2);
 }
 
-// TARGET SPAWN
+// TARGET
+let target = document.querySelector("#target");
 function spawnTarget(){
   let p = cam.object3D.position;
   target.object3D.position.set(
@@ -129,36 +79,13 @@ function spawnTarget(){
 }
 spawnTarget();
 
-// TELEPORT (3 feet forward)
-document.addEventListener("click", ()=>{
+// TELEPORT (pinch forward)
+function teleport(){
   let dir = new THREE.Vector3();
   cam.object3D.getWorldDirection(dir);
 
-  rig.object3D.position.add({
-    x: dir.x * 1,
-    y: 0,
-    z: dir.z * 1
-  });
-});
-
-// DEBUG MENU (press "O" on keyboard or Quest button)
-document.addEventListener("keydown",(e)=>{
-  if(e.key.toLowerCase()==="o"){
-    menuOpen = !menuOpen;
-    document.querySelector("#menu").setAttribute("visible",menuOpen);
-  }
-});
-
-// ARMOR SHOW
-function showArmor(){
-  [
-    "helmet","chest","waist",
-    "leftArmArmor","rightArmArmor",
-    "leftLeg","rightLeg",
-    "leftFoot","rightFoot"
-  ].forEach(id=>{
-    document.querySelector("#"+id).setAttribute("visible",true);
-  });
+  rig.object3D.position.x += dir.x * 1;
+  rig.object3D.position.z += dir.z * 1;
 }
 
 // LOOP
@@ -166,37 +93,45 @@ function loop(){
 
   let camPos = cam.object3D.position;
 
-  // TARGET HIT
-  if(d(camPos,target.object3D.position)<0.4){
+  let left = leftHand.object3D.position;
+  let right = rightHand.object3D.position;
+
+  // 🎯 HIT TARGET WITH HAND
+  if(d(right, target.object3D.position) < 0.3){
     ingots += 0.25;
     hudText.setAttribute("value","INGOTS: "+ingots.toFixed(2));
     spawnTarget();
-
-    if(ingots >= 60){
-      nanoUnlocked = true;
-      showArmor();
-      hud.setAttribute("visible",true);
-      helmetOn = true;
-      hudText.setAttribute("value","NANO SUIT READY");
-    }
   }
 
-  // ATTACH ARMOR
+  // 🕊️ FLY (both hands up)
+  if(left.y > camPos.y+0.5 && right.y > camPos.y+0.5){
+    rig.object3D.position.y += 0.05;
+  }
+
+  // 🌀 TELEPORT (right hand forward)
+  if(right.z < camPos.z - 0.5){
+    teleport();
+  }
+
+  // ⚙️ MENU (left hand near face)
+  if(d(left, camPos) < 0.3){
+    menuOpen = !menuOpen;
+    document.querySelector("#menu").setAttribute("visible", menuOpen);
+  }
+
+  // 🦾 UNLOCK SUIT
+  if(ingots >= 60 && !nanoUnlocked){
+    nanoUnlocked = true;
+    hud.setAttribute("visible", true);
+
+    document.querySelector("#helmet").setAttribute("visible", true);
+    document.querySelector("#chest").setAttribute("visible", true);
+  }
+
+  // 🦾 ATTACH
   if(nanoUnlocked){
-    let c = camPos;
-
-    document.querySelector("#helmet").object3D.position.set(c.x,c.y,c.z-0.1);
-    document.querySelector("#chest").object3D.position.set(c.x,c.y-0.4,c.z-0.1);
-    document.querySelector("#waist").object3D.position.set(c.x,c.y-0.75,c.z-0.1);
-
-    document.querySelector("#leftArmArmor").object3D.position.set(c.x-0.4,c.y-0.2,c.z-0.1);
-    document.querySelector("#rightArmArmor").object3D.position.set(c.x+0.4,c.y-0.2,c.z-0.1);
-
-    document.querySelector("#leftLeg").object3D.position.set(c.x-0.2,c.y-1.2,c.z-0.1);
-    document.querySelector("#rightLeg").object3D.position.set(c.x+0.2,c.y-1.2,c.z-0.1);
-
-    document.querySelector("#leftFoot").object3D.position.set(c.x-0.2,c.y-1.6,c.z);
-    document.querySelector("#rightFoot").object3D.position.set(c.x+0.2,c.y-1.6,c.z);
+    document.querySelector("#helmet").object3D.position.set(camPos.x, camPos.y, camPos.z-0.1);
+    document.querySelector("#chest").object3D.position.set(camPos.x, camPos.y-0.4, camPos.z-0.1);
   }
 
   requestAnimationFrame(loop);
