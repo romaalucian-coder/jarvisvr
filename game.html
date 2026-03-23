@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:lime;text-align:center;">
+
+<h1>🧼 CLEANING GAME</h1>
+<div id="score">Score: 0</div>
+<div id="combo">Combo: 0</div>
+
+<video id="video" autoplay></video>
+<canvas id="canvas"></canvas>
+
+<script>
+let score = 0;
+let combo = 0;
+let lastFrame = null;
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+// WebRTC receive
+const pc = new RTCPeerConnection();
+const ws = new WebSocket("wss://ws.ifelse.io");
+
+pc.ontrack = e => {
+  video.srcObject = e.streams[0];
+};
+
+pc.onicecandidate = e => {
+  if (e.candidate) ws.send(JSON.stringify({ candidate: e.candidate }));
+};
+
+ws.onmessage = async msg => {
+  const data = JSON.parse(msg.data);
+
+  if (data.offer) {
+    await pc.setRemoteDescription(data.offer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    ws.send(JSON.stringify({ answer }));
+  }
+
+  if (data.candidate) {
+    await pc.addIceCandidate(data.candidate);
+  }
+};
+
+// AI detection
+function detect() {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  ctx.drawImage(video, 0, 0);
+  let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  if (lastFrame) {
+    let diff = 0;
+
+    for (let i = 0; i < frame.data.length; i += 4) {
+      let d = Math.abs(frame.data[i] - lastFrame.data[i]);
+      if (d > 30) diff++;
+    }
+
+    if (diff > 15000) {
+      combo++;
+      score += combo;
+
+      updateUI();
+      jarvisHype();
+    } else {
+      combo = 0;
+    }
+  }
+
+  lastFrame = frame;
+  requestAnimationFrame(detect);
+}
+
+function updateUI() {
+  document.getElementById("score").innerText = "Score: " + score;
+  document.getElementById("combo").innerText = "Combo: " + combo;
+}
+
+// JARVIS VOICE 🔥
+function jarvisHype() {
+  const lines = [
+    "Excellent work.",
+    "You're improving efficiency.",
+    "Keep going.",
+    "Outstanding cleaning performance.",
+    "Combo streak detected."
+  ];
+
+  const msg = new SpeechSynthesisUtterance(
+    lines[Math.floor(Math.random() * lines.length)]
+  );
+
+  msg.rate = 0.95;
+  msg.pitch = 0.8;
+
+  speechSynthesis.speak(msg);
+}
+
+video.addEventListener("play", detect);
+</script>
+
+</body>
+</html>
